@@ -28,16 +28,19 @@ FileSystem          db      "FAT16   "
 ; **************************************************
 
 boot_entry:
-    ; **************************************************
+    cli
+    xor ax, ax
+    mov ss, ax
+    mov sp, 0x7c00          ; set stack right before boot sector
+
     ; load code into memory at 0x7c00 (es:bx)
     ; 0x07c0:0x0000 = ((0x07c0 << 4) + 0x0000) => 0x7c00
-    ; **************************************************
-    cli
     mov ax, 0x07c0
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
+    sti
 
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
     mov cl, 2               ; get 2nd sector
@@ -48,7 +51,7 @@ boot_entry:
     call read
 
     jmp 0x07c0:0x0200       ; jmp to 2nd stage
-    hlt
+    jmp $
 
 %include "print.asm"
 %include "read.asm"
@@ -60,9 +63,26 @@ dw 0xaa55                   ; magic number -> bootable
 ; 2nd stage
 ; ******************************************************
 stage2:
-    mov dx, 0x6469
+    mov dx, cs
     call printh
-    mov dx, 0xbeef
-    call printh
-    hlt
+
+    call check_A20
+    cmp ax, 0
+    je .a20_disabled
+
+    mov si, .a20_enabled_msg
+    jmp .a20_check_end
+
+    .a20_disabled:
+    mov si, .a20_disabled_msg
+    .a20_check_end:
+
+    call print
+
+    jmp $
+
+    .a20_enabled_msg: db "A20 is already enabled", 0xd, 0xa, 0
+    .a20_disabled_msg: db "A20 is disabled", 0xd, 0xa, 0
+
+    %include "A20.asm"
 ; ******************************************************
