@@ -1,3 +1,54 @@
+; not tested (no device where A20 is disabled per default)
+enable_A20:
+    call check_A20
+    cmp ax, 1
+    je .exit
+
+    .bios_int:
+        ; is int 0x15 to enable A20 supported
+        mov ax, 0x2403
+        int 0x15
+        jb .fast
+        cmp ah, 0
+        jne .fast
+
+        ; check A20 status with bios (another check if interrupt works)
+        mov ax, 0x2402
+        int 0x15
+        jb .fast
+        cmp ah, 0
+        jne .fast
+
+        cmp al, 1   ; A20 is active
+        je .exit
+
+        mov ax, 0x2401
+        int 0x15
+        jb .fast
+        cmp ah, 0
+        je .exit
+
+    .fast:
+        in al, 0x92
+        cmp al, 2
+        je .exit        ; is already set
+        or al, 2
+        and al, ~1      ; clear first bit
+        out 0x92, al
+
+    .exit:
+        mov si, .enabled_msg
+        call print
+        ret
+
+    .err:
+        mov si, .err_msg
+        call print
+        jmp $
+
+    .enabled_msg: db "A20 is enabled", 0xd, 0xa, 0
+    .err_msg: db "could not enable A20", 0xd, 0xa, 0
+
 ; return: ax = is A20 enabled
 check_A20:
     push ds

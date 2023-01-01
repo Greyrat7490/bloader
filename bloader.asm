@@ -66,23 +66,8 @@ stage2:
     mov dx, cs
     call printh
 
-    call check_A20
-    cmp ax, 0
-    je .a20_disabled
-
-    mov si, .a20_enabled_msg
-    jmp .a20_check_end
-
-    .a20_disabled:
-    mov si, .a20_disabled_msg
-    .a20_check_end:
-
-    call print
-
+    call enable_A20
     jmp $
-
-    .a20_enabled_msg: db "A20 is already enabled", 0xd, 0xa, 0
-    .a20_disabled_msg: db "A20 is disabled", 0xd, 0xa, 0
 
     %include "A20.asm"
 ; ******************************************************
