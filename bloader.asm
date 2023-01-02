@@ -1,5 +1,4 @@
 [BITS 16]
-[ORG 0x0000]
 jmp strict short boot_entry
 nop
 
@@ -27,16 +26,14 @@ VolumeLabel         db      "bloader    "
 FileSystem          db      "FAT16   "
 ; **************************************************
 
+[ORG 0x7c00]                ; load code into memory at 0x7c00 (es:bx)
 boot_entry:
     cli
+    mov sp, 0x7c00          ; set stack right before boot sector
     xor ax, ax
     mov ss, ax
-    mov sp, 0x7c00          ; set stack right before boot sector
 
-    ; load code into memory at 0x7c00 (es:bx)
-    ; 0x07c0:0x0000 = ((0x07c0 << 4) + 0x0000) => 0x7c00
-    mov ax, 0x07c0
-    mov ds, ax
+    mov ds, ax              ; ORG only sets offset so set segments to 0 just to be sure
     mov es, ax
     mov fs, ax
     mov gs, ax
@@ -44,14 +41,13 @@ boot_entry:
 
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
     mov cl, 2               ; get 2nd sector
-    mov al, 1               ; read 1 sector
+    mov al, 3               ; read 3 sector
     mov ch, 0               ; track
     mov dh, 0               ; head
-    mov bx, 0x0200          ; dst (es:bx / 0x07c0:0x0200)
+    mov bx, stage2          ; dst (es:bx / 0x07c0:0x0200)
     call read
 
-    jmp 0x07c0:0x0200       ; jmp to 2nd stage
-    jmp $
+    jmp stage2              ; jmp to 2nd stage
 
 %include "print.asm"
 %include "read.asm"
@@ -63,11 +59,22 @@ dw 0xaa55                   ; magic number -> bootable
 ; 2nd stage
 ; ******************************************************
 stage2:
-    mov dx, cs
-    call printh
-
     call enable_A20
-    jmp $
+    ; TODO: init_vbe
+    ; TODO: get memory map
+
+    jmp enter_protected
 
     %include "A20.asm"
+    %include "protected.asm"
+
+[BITS 32]
+protected_entry:
+    mov byte [0xb8000], 65
+    mov byte [0xb8001], 0x1b
+
+    ; TODO: loader kernel
+    ; TODO: jump tp kernel
+
+    jmp $
 ; ******************************************************
