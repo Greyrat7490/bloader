@@ -60,18 +60,26 @@ dw 0xaa55                   ; magic number -> bootable
 ; ******************************************************
 stage2:
     call enable_A20
-    call init_vbe
-    ; TODO: get memory map
+    call get_memory_map
+    ; call init_vbe
+
+    mov si, .mmap_len_msg
+    call print
+    mov dx, word [memory_map_len]
+    call printh
 
     jmp enter_protected
 
-    %include "A20.asm"
-    %include "vbe.asm"
-    %include "protected.asm"
+.mmap_len_msg: db "memory map len: ", 0
+
+%include "A20.asm"
+%include "vbe.asm"
+%include "memory.asm"
+%include "protected.asm"
 
 [BITS 32]
 protected_entry:    
-    call fill_screen32
+    ; call fill_screen32
 
     ; TODO: loader kernel
     ; TODO: jump tp kernel
