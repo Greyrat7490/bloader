@@ -41,7 +41,7 @@ boot_entry:
 
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
     mov cl, 2               ; get 2nd sector
-    mov al, 3               ; read 3 sector
+    mov al, 4               ; read 4 sector
     mov ch, 0               ; track
     mov dh, 0               ; head
     mov bx, stage2          ; dst (es:bx / 0x07c0:0x0200)
@@ -60,21 +60,38 @@ dw 0xaa55                   ; magic number -> bootable
 ; ******************************************************
 stage2:
     call enable_A20
-    ; TODO: init_vbe
+    call init_vbe
     ; TODO: get memory map
 
     jmp enter_protected
 
     %include "A20.asm"
+    %include "vbe.asm"
     %include "protected.asm"
 
 [BITS 32]
-protected_entry:
-    mov byte [0xb8000], 65
-    mov byte [0xb8001], 0x1b
+protected_entry:    
+    call fill_screen32
 
     ; TODO: loader kernel
     ; TODO: jump tp kernel
 
     jmp $
+
+fill_screen32:    ; only works with 32 bpp
+    cld
+    mov eax, 0x41336e
+    mov edi, dword [vbe.framebuffer]
+    movzx ecx, word [vbe.width]
+    rep stosd
+
+    mov bx, word [vbe.height]
+    .l1:
+        mov cx, word [vbe.width]
+        rep stosd
+
+        dec bx
+        cmp bx, 0
+        jge .l1
+    ret
 ; ******************************************************
