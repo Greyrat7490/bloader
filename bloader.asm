@@ -63,6 +63,10 @@ stage2:
     call get_memory_map
     ; call init_vbe
 
+    mov si, .mem_info_kind_msg
+    call print
+    movzx dx, byte [memory_info_kind]
+    call printh
     mov si, .mmap_len_msg
     call print
     mov dx, word [memory_map_len]
@@ -70,6 +74,7 @@ stage2:
 
     jmp enter_protected
 
+.mem_info_kind_msg: db "memory info kind: ", 0
 .mmap_len_msg: db "memory map len: ", 0
 
 %include "A20.asm"
@@ -78,7 +83,7 @@ stage2:
 %include "protected.asm"
 
 [BITS 32]
-protected_entry:    
+protected_entry:
     ; call fill_screen32
 
     ; TODO: loader kernel
