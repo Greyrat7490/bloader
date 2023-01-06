@@ -24,6 +24,7 @@
 
 %define SMAP_ASCII 0x534d4150       ; ASCII for "SMAP"
 %define MAX_SMAP_SIZE 24
+%define memory_map_addr 0xf000      ; 29KiB after bootloader start, 4KiB space
 
 get_memory_map:
     .method1:
@@ -107,7 +108,6 @@ get_memory_map:
 
 memory_info_kind: db 0          ; which method see top
 
-memory_map_addr: dw 0xf000      ; 29KiB after bootloader start, 4KiB space
 memory_map_len: dw 0            ; memory_info_kind 1: map entry count
 upper_memory_64KiB: dw 0        ; memory_info_kind 2: continuous memory above 16MiB in 64KiB  (4GiB cap)
 lower_memory_KiB: dw 0          ; memory_info_kind 2: continuous memory between 1MiB - 16MiB in KiB
