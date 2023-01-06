@@ -8,17 +8,34 @@
 * [x] get best vbe mode
 * [x] set vbe mode
 * [x] go protected mode
-* [ ] go long mode
+* [x] go long mode
 * [ ] load kernel from FAT16 drive
 
 ## build
-* run "make"
+* ```$ make```
 
 ## test it with qemu
-* run "make run"
+* ```$ make run```
+
+## debug with qemu
+* ```$ make monitor```
+  * ```$(qemu) info tlb```
+    * all valid pages and there frames
+  * ```$(qemu) info mem```
+    * compact paging tables
+  * ```$(qemu) info registers```
+    * show all regs and there values
+  * ```$(qemu) x/<num>x <addr>```
+    * show num words at addr
+  * ```$(qemu) x/<num>i <addr>```
+    * show num instructions at addr
+
+## create log with qemu
+* ```$ make log```
+  * log all interrupts (state of all regs)
 
 ## try it on a real device
-* sudo dd if=bootloader.img of=/dev/"yourDevice" (or any other way)
+*  ```$ sudo dd if=bootloader.img of=/dev/<YourDevice>``` (or any other way)
 * reboot and open BIOS
 * make sure legacy boot(CSM) is enabled when using uefi device
 * boot into USB device
