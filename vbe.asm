@@ -78,10 +78,8 @@ find_best_mode:
         mov al, byte [vbe_mode_info.bpp]
         mov byte [vbe.bpp], al
 
-        mov ax, word [vbe_mode_info.framebuffer]
-        mov word [vbe.framebuffer], ax
-        mov ax, word [vbe_mode_info.framebuffer+2]
-        mov word [vbe.framebuffer+2], ax
+        mov eax, dword [vbe_mode_info.framebuffer]
+        mov dword [vbe.framebuffer], eax
 
     .next:
         add si, 2
