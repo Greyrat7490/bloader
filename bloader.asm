@@ -41,7 +41,7 @@ boot_entry:
 
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
     mov cl, 2               ; get 2nd sector
-    mov al, 4               ; read 4 sector
+    mov al, 5               ; read 5 sector
     mov ch, 0               ; track
     mov dh, 0               ; head
     mov bx, stage2          ; dst (es:bx / 0x07c0:0x0200)
@@ -61,7 +61,7 @@ dw 0xaa55                   ; magic number -> bootable
 stage2:
     call enable_A20
     call get_memory_map
-    ; call init_vbe
+    call init_vbe
 
     jmp enter_long_mode
 
@@ -74,18 +74,14 @@ stage2:
 %include "longmode.asm"
 
 [BITS 64]
-long_mode_entry: 
-    ; call fill_screen32
-
-    mov byte [0xb8000], 65
-    mov byte [0xb8001], 0x1b
+long_mode_entry:
+    call fill_screen32
 
     ; TODO: load kernel
     ; TODO: jump to kernel
 
     jmp $
 
-; cannot only be used in protected mode because a lot of mapping is needed (TODO)
 fill_screen32:    ; only works with 32 bpp
     cld
     mov eax, 0x41336e
@@ -93,13 +89,13 @@ fill_screen32:    ; only works with 32 bpp
     movzx ecx, word [vbe.width]
     rep stosd
 
-    mov bx, word [vbe.height]
+    movzx ebx, word [vbe.height]
     .l1:
-        mov cx, word [vbe.width]
+        movzx ecx, word [vbe.width]
         rep stosd
 
-        dec bx
-        cmp bx, 0
-        jge .l1
+        dec ebx
+        cmp ebx, 1
+        jg .l1
     ret
 ; ******************************************************

@@ -17,7 +17,7 @@
 ; |         4x PT-Table           |   4 * 4KiB  /  512 Entries   |
 ;
 ; |   Memory occupied by Tables   |         Memory mapped        |
-; |    4 * 512 * 8Byte = 16KiB    |    512 * 4 * 4KiB = 8MiB     |
+; |        7 * 4KiB = 28KiB       |    512 * 4 * 4KiB = 8MiB     |
 ; ----------------------------------------------------------------
 ;
 ;
@@ -28,12 +28,12 @@
 ; |      0xf000 -> 0xf000      |        - memory map
 ; |     0xb8000 -> 0xb8000     |        - VGA-Text-Buffer
 ; |    0x100000 -> 0x100000    |        - Paging-Tables
-; |    0x107000 -> 0x107000    |        - Kernel
-; |    0x7fffff -> 0x7fffff    |
+; |    0x120000 -> 0x120000    |        - Kernel
+; |    0x7ff000 -> 0x7ff000    |
 ; | -------------------------- |        - 8MiB are mapped
 ; |          0x800000          |        - unmapped
-; |         0xfd000000         |        - vbe framebuffer (unmapped)
-; |            ....            |        - ....
+; |  0xfd000000 -> 0xfd000000  |        - vbe framebuffer
+; |            ....            |        - .... (unmapped)
 ; ------------------------------
 ;
 ; **********************************************************
@@ -43,6 +43,9 @@
 %define PDP_addr  0x101000
 %define PD_addr   0x102000
 %define PTs_addr  0x103000
+
+%define vbe_PD_addr   0x107000
+%define vbe_PTs_addr  0x108000
 
 
 [BITS 16]
@@ -134,8 +137,80 @@ enter_long_mode:
 
         cmp ecx, 512 * 4    ; 512 Entries * 4 PageTables
         jl .map_PT
+
+    call .map_vbe_framebuffer
     ret
 
+.map_vbe_framebuffer:
+    ; get page count to map whole framebuffer (PT_entries)
+    movzx eax, word [vbe.width]
+    movzx ebx, word [vbe.height]
+    mul ebx
+
+    movzx ebx, byte [vbe.bpp]
+    shr ebx, 3                  ; / 8
+    mul ebx
+
+    shr eax, 12                 ; / 0x1000 (page size)
+    inc eax
+    mov dword [.entries_count], eax
+
+    ; add entry in PDP_Table ****************************************
+    mov eax, dword [vbe.framebuffer]
+    shr eax, 30
+    and eax, 0x1ff
+
+    mov ebx, vbe_PD_addr
+    or ebx, 11b
+    mov [PDP_addr + eax * 8], ebx
+    ; **************************************************************
+
+    ; create/set all PD_Tables *************************************
+    mov eax, dword [vbe.framebuffer]
+    shr eax, 21
+    and eax, 0x1ff
+
+    mov edi, vbe_PD_addr
+    mov ecx, eax            ; start entry
+    mov ebx, vbe_PTs_addr   ; PTs start addr
+    mov edx, dword [.entries_count]
+    shr edx, 9              ; / 512 -> PT_Tables count
+    add edx, ecx
+
+    or ebx, 11b
+    .set_PD:
+        mov [edi + ecx * 8], ebx
+        add ebx, 0x1000
+
+        inc ecx
+
+        cmp ecx, edx
+        jle .set_PD
+    ; **************************************************************
+
+    ; create/set all PT_Tables *************************************
+    mov eax, dword [vbe.framebuffer]
+    shr eax, 12
+    and eax, 0x1ff
+
+    mov edi, vbe_PTs_addr
+    mov ecx, eax                        ; start entry
+    mov ebx, dword [vbe.framebuffer]    ; start physical address
+    and ebx, ~0xfff
+
+    or ebx, 11b
+    .set_PTs:
+        mov [edi + ecx * 8], ebx
+        add ebx, 0x1000
+
+        inc ecx
+
+        cmp ecx, dword [.entries_count]
+        jle .set_PTs
+    ; **************************************************************
+    ret
+
+.entries_count: dd 0
 
 [BITS 64]
 .init:
