@@ -8,6 +8,12 @@ all: build/$(name).img
 run: build/$(name).img
 	qemu-system-x86_64 -drive format=raw,file=build/$(name).img
 
+monitor: build/$(name).img
+	qemu-system-x86_64 -drive format=raw,file=build/$(name).img -no-reboot -no-shutdown -monitor stdio
+
+log: build/$(name).img
+	qemu-system-x86_64 -drive format=raw,file=build/$(name).img -D log -d int -no-reboot -no-shutdown
+
 clean:
 	rm -rf build
 
