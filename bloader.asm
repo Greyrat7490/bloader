@@ -63,16 +63,7 @@ stage2:
     call get_memory_map
     ; call init_vbe
 
-    mov si, .mem_info_kind_msg
-    call print
-    movzx dx, byte [memory_info_kind]
-    call printh
-    mov si, .mmap_len_msg
-    call print
-    mov dx, word [memory_map_len]
-    call printh
-
-    jmp enter_protected
+    jmp enter_long_mode
 
 .mem_info_kind_msg: db "memory info kind: ", 0
 .mmap_len_msg: db "memory map len: ", 0
@@ -80,17 +71,21 @@ stage2:
 %include "A20.asm"
 %include "vbe.asm"
 %include "memory.asm"
-%include "protected.asm"
+%include "longmode.asm"
 
-[BITS 32]
-protected_entry:
+[BITS 64]
+long_mode_entry: 
     ; call fill_screen32
 
-    ; TODO: loader kernel
-    ; TODO: jump tp kernel
+    mov byte [0xb8000], 65
+    mov byte [0xb8001], 0x1b
+
+    ; TODO: load kernel
+    ; TODO: jump to kernel
 
     jmp $
 
+; cannot only be used in protected mode because a lot of mapping is needed (TODO)
 fill_screen32:    ; only works with 32 bpp
     cld
     mov eax, 0x41336e
