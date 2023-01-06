@@ -25,7 +25,7 @@ printh:
     push ax
     push cx
 
-    mov ax, 2
+    mov eax, 2
     mov cl, 16
 
     .l1:

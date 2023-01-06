@@ -51,7 +51,6 @@ get_memory_map:
             jne .l1
 
         mov byte [memory_info_kind], 1
-        xor eax, eax
         jmp .exit
 
     .method2:
