@@ -138,7 +138,10 @@ enter_long_mode:
         cmp ecx, 512 * 4    ; 512 Entries * 4 PageTables
         jl .map_PT
 
+    cmp dword [vbe.framebuffer], 0
+    je .no_vbe
     call .map_vbe_framebuffer
+    .no_vbe:
     ret
 
 .map_vbe_framebuffer:
