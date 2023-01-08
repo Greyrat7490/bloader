@@ -1,12 +1,12 @@
 ; ***********************************
 ; read sector from disk into ES:BX
 ; cl = first sector
-; ch = track
+; ch = cylinder
 ; dh = head
 ; dl = driver number
 ; al = number of sectors to read
 ; ***********************************
-read:
+readSectors:
     mov ah, 0x02 ; read
     int 0x13
     jc .error
@@ -22,5 +22,5 @@ read:
         call printh
         ret
 
-.err_msg: db "ERROR: could not read sector", 0xd, 0xa, 0
-.success_msg: db "sucessfully read sector", 0xd, 0xa, 0
+.err_msg: db "ERROR: could not read sectors", 0xd, 0xa, 0
+.success_msg: db "sucessfully read sectors", 0xd, 0xa, 0

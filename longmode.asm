@@ -26,6 +26,7 @@
 ; |            ....            |        - ....
 ; |      0x7000 -> 0x7000      |        - stack, bootloader start
 ; |      0xf000 -> 0xf000      |        - memory map
+; |      0xb000 -> 0xb000      |        - area to tmp store read data
 ; |     0xb8000 -> 0xb8000     |        - VGA-Text-Buffer
 ; |    0x100000 -> 0x100000    |        - Paging-Tables
 ; |    0x120000 -> 0x120000    |        - Kernel
