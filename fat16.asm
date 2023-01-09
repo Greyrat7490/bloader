@@ -16,28 +16,20 @@
 
 
 load_kernel:
-    call .read_root_dir
+    call read_root_dir
 
-    mov si, .at_cluster_msg
-    call print
+    movzx eax, word [tmp_dst_addr+start_cluster]       ; stores start_cluster-2 (because first 2 are reserved)
+    add eax, 2
 
-    mov dx, word [tmp_dst_addr+start_cluster]       ; stores start_cluster-2 (because first 2 are reserved)
-    add dx, 2
-    call printh
-
-    mov si, .file_size_msg
-    call print
-
-    mov dx, word [tmp_dst_addr+file_size]
-    call printh
-
+    mov edi, kernel_addr
+    call readCluster
     ret
 
 .at_cluster_msg: db "start cluster of file: ", 0
 .file_size_msg: db "file size (in bytes): ", 0
 
 ; 0x10c00 -> sector: 9, head: 2, cylinder: 0
-.read_root_dir:
+read_root_dir:
     mov dl, byte [DriveNumber]
     mov al, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
     mov cl, root_dir_sector
@@ -47,19 +39,47 @@ load_kernel:
     call readSectors
     ret
 
-.readCluster:
+; input: eax = cluster number
+; loads cluster to addr in edi and edi gets increased
+readCluster:
+    .to_CHS:
+        mov ebx, SECTORS_PER_CLUSTER * BYTES_PER_SECTOR
+        mul ebx
+        add eax, root_dir_addr
+
+        mov ebx, bytes_per_cylinder
+        xor edx, edx
+        div ebx
+        mov ch, al  ; cylinder
+
+        mov eax, edx
+        mov ebx, bytes_per_track
+        xor edx, edx
+        div ebx
+        push eax ; head
+
+        mov eax, edx
+        mov ebx, BYTES_PER_SECTOR
+        xor edx, edx
+        div ebx
+        mov cl, al
+        inc cl      ; sector
+
+        pop eax     ; restore eax (head)
+        mov dh, al
+
     mov dl, byte [DriveNumber]
     mov al, byte [SectorsPerCluster]
-    mov cl, 2               ; get 2nd sector
-    mov ch, 0               ; track
-    mov dh, 0               ; head
     mov bx, tmp_dst_addr
     call readSectors
 
-.relocate:
-    mov esi, tmp_dst_addr
-    ; edi is already set and gets inc by movsd
-    movzx ecx, byte [SectorsPerCluster]
-    shl ecx, 7                              ; * 512 / 4 -> size in dwords
-    cld
-    rep movsd
+    ret
+    ; TODO: go unreal mode to access higher address
+    .relocate:
+        ; edi is already set and gets inc by movsd
+        mov esi, tmp_dst_addr
+        movzx ecx, byte [SectorsPerCluster]
+        shl ecx, 7                              ; * 512 / 4 -> size in dwords
+        cld
+        rep movsd
+    ret

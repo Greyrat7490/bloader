@@ -69,6 +69,7 @@ dw 0xaa55                   ; magic number -> bootable
 ; ******************************************************
 stage2:
     call enable_A20
+    ; TODO: go unreal mode to put access higher addr (needed to load kernel)
     call get_memory_map
     call load_kernel
     ; call init_vbe
@@ -86,6 +87,14 @@ stage2:
 
 [BITS 64]
 long_mode_entry:
+    ; only tmp for testing
+    mov edi, kernel_addr
+    mov esi, tmp_dst_addr
+    movzx ecx, byte [SectorsPerCluster]
+    shl ecx, 7                              ; * 512 / 4 -> size in dwords
+    cld
+    rep movsd
+
     ; call fill_screen32
 
     jmp $
