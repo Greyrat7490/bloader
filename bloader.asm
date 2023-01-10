@@ -72,9 +72,6 @@ stage2:
 
     jmp enter_long_mode
 
-.mem_info_kind_msg: db "memory info kind: ", 0
-.mmap_len_msg: db "memory map len: ", 0
-
 %include "A20.asm"
 %include "vbe.asm"
 %include "memory.asm"
@@ -86,6 +83,8 @@ long_mode_entry:
     call load_kernel
 
     call fill_screen32
+
+    ; TODO: preparations for elf64 file
 
     jmp $
     jmp kernel_addr

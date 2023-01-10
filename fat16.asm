@@ -67,7 +67,7 @@ readATA:
     in al, dx
 
     dec bl
-    cmp bl, 0           
+    cmp bl, 0
     jg .recv            ; read next sector
     ret
 .err:
@@ -78,19 +78,28 @@ readATA:
 ; rdi = dest addr
 ; output: loads clusters to dest addr (rdi increases)
 readClusterChain:
+    push rax
+    add eax, 2
     movzx ebx, byte [SectorsPerCluster]
     mul ebx
     add eax, root_dir_lba
+
     call readATA
-    ; TODO: get next cluster from FAT
-    ; TODO: if < 0xfff8 repeat
+
+    pop rax
+    inc rax
+    shl rax, 1          ; * 2 (size of one fat16 entry)
+
+    movzx eax, word [fat_addr+rax]
+    cmp ax, 0xfff8
+    jle readClusterChain
     ret
 
 read_root_dir:
     mov bl, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
     mov eax, root_dir_lba
     mov rdi, root_dir_addr
-    call readATA 
+    call readATA
     ret
 
 read_fat:
@@ -104,8 +113,7 @@ load_kernel:
     call read_fat
     call read_root_dir
 
-    movzx eax, word [root_dir_addr+start_cluster]       ; stores start_cluster-2 (because first 2 are reserved)
-    add eax, 2
+    movzx eax, word [root_dir_addr+start_cluster]       ; stores start_cluster-2 (because 2nd is reserved)
 
     mov rdi, kernel_addr
     call readClusterChain
