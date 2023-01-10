@@ -11,8 +11,6 @@ nop
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
-%define SECTORS_PER_TRACK   63
-%define HEADS_PER_CYLINDER  16
 
 OEM_ID              db      "bloader "
 BytesPerSector      dw      BYTES_PER_SECTOR
@@ -23,8 +21,8 @@ MaxRootEntries      dw      MAX_ROOT_ENTRIES
 NumberOfSectors     dw      0
 MediaDescriptor     db      0xf8
 SectorsPerFAT       dw      SECTORS_PER_FAT
-SectorsPerTrack     dw      SECTORS_PER_TRACK
-HeadsPerCylinder    dw      HEADS_PER_CYLINDER
+SectorsPerTrack     dw      63
+HeadsPerCylinder    dw      16
 HiddenSectors       dd      0
 BigSectorsPerFAT    dd      0x00010000
 DriveNumber         db      0
@@ -69,10 +67,8 @@ dw 0xaa55                   ; magic number -> bootable
 ; ******************************************************
 stage2:
     call enable_A20
-    ; TODO: go unreal mode to put access higher addr (needed to load kernel)
     call get_memory_map
-    call load_kernel
-    ; call init_vbe
+    call init_vbe
 
     jmp enter_long_mode
 
@@ -87,15 +83,9 @@ stage2:
 
 [BITS 64]
 long_mode_entry:
-    ; only tmp for testing
-    mov edi, kernel_addr
-    mov esi, tmp_dst_addr
-    movzx ecx, byte [SectorsPerCluster]
-    shl ecx, 7                              ; * 512 / 4 -> size in dwords
-    cld
-    rep movsd
+    call load_kernel
 
-    ; call fill_screen32
+    call fill_screen32
 
     jmp $
     jmp kernel_addr
