@@ -87,11 +87,10 @@ readClusterChain:
     call readATA
 
     pop rax
-    inc rax
-    shl rax, 1          ; * 2 (size of one fat16 entry)
+    shl eax, 1          ; * 2 (size of one fat16 entry)
 
-    movzx eax, word [fat_addr+rax]
-    cmp ax, 0xfff8
+    movzx eax, word [fat_addr+eax]
+    cmp eax, 0xfff8
     jle readClusterChain
     ret
 
