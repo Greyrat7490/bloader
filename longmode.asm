@@ -1,11 +1,11 @@
 ; **********************************************************
 ; Paging information:
-; - Using Level 4 Paging
-; - PML4-Table -> PDP-Table -> PD-Table -> PT-Table
-; - identity mapping
-; - Entry size 8 Byte
-; - Table size 4KiB
-; - Page size 4KiB
+; * Using Level 4 Paging
+; * PML4-Table -> PDP-Table -> PD-Table -> PT-Table
+; * identity mapping (virtual = physical addr)
+; * Entry size 8 Byte
+; * Table size 4KiB
+; * Page size 4KiB
 ;
 ;                       Paging-Tables information
 ; ----------------------------------------------------------------
@@ -15,8 +15,9 @@
 ; |         1x PDP-Table          |   1 * 4KiB  /  1 Entry       |
 ; |         1x PD-Table           |   1 * 4KiB  /  4 Entries     |
 ; |         4x PT-Table           |   4 * 4KiB  /  512 Entries   |
-;
+; ----------------------------------------------------------------
 ; |   Memory occupied by Tables   |         Memory mapped        |
+; |         (without vbe)         |         (without vbe)        |
 ; |        7 * 4KiB = 28KiB       |    512 * 4 * 4KiB = 8MiB     |
 ; ----------------------------------------------------------------
 ;
@@ -24,13 +25,14 @@
 ;       Virtual -> Physical
 ; ------------------------------
 ; |            ....            |        - ....
-; |      0x7000 -> 0x7000      |        - stack, bootloader start
+; |      0x7000 -> 0x7000      |        - bootloader start and stack
 ; |      0xf000 -> 0xf000      |        - memory map
 ; |     0xb8000 -> 0xb8000     |        - VGA-Text-Buffer
 ; |    0x100000 -> 0x100000    |        - Paging-Tables
 ; |    0x120000 -> 0x120000    |        - FAT root dir
 ; |    0x124000 -> 0x124000    |        - FAT
-; |    0x130000 -> 0x130000    |        - Kernel
+; |    0x130000 -> 0x130000    |        - Kernel stack (option)
+; |    0x400000 -> 0x400000    |        - Kernel addr  (option)
 ; |    0x7ff000 -> 0x7ff000    |
 ; | -------------------------- |        - 8MiB are mapped
 ; |          0x800000          |        - unmapped
