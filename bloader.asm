@@ -2,6 +2,13 @@
 jmp strict short boot_entry
 nop
 
+; **********************************
+; OPTIONS
+%define kernel_addr 0x400000                            ; default virtual addr of elf files (adjust if needed or change in linker)
+%define kernel_stack_size 0x4000                        ; 16KiB
+%define kernel_stack_addr (0x130000+kernel_stack_size)  ; stack top
+; **********************************
+
 ; **************************************************
 ; FAT16
 ; **************************************************
@@ -68,7 +75,7 @@ dw 0xaa55                   ; magic number -> bootable
 stage2:
     call enable_A20
     call get_memory_map
-    call init_vbe
+    ; call init_vbe
 
     jmp enter_long_mode
 
@@ -78,16 +85,24 @@ stage2:
 %include "fat16.asm"
 %include "longmode.asm"
 
+%define programm_start_off 0x1000   ; tmp only for testing
+
 [BITS 64]
 long_mode_entry:
     call load_kernel
 
-    call fill_screen32
+    ; call fill_screen32
 
-    ; TODO: preparations for elf64 file
+    ; pass important information as args (System V AMD64 ABI calling convention)
+    mov rdi, memory_map_addr
+    mov rsi, vbe
+    mov rdx, PML4_addr  ; 0x7000 Bytes for tables at least (more depending on vbe)
 
-    jmp $
-    jmp kernel_addr
+    ; setup new stack for kernel
+    mov rsp, kernel_stack_addr
+
+    ; TODO: elf64 get entry_addr
+    jmp kernel_addr+programm_start_off
 
 fill_screen32:    ; only works with 32 bpp
     cld

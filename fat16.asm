@@ -6,7 +6,6 @@
 
 %define root_dir_addr 0x120000  ; (0x120000 - 0x124000)
 %define fat_addr 0x124000       ; (0x124000 - 0x12c000)
-%define kernel_addr 0x130000
 
 [BITS 64]
 ; eax = LBA
