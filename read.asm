@@ -23,4 +23,4 @@ readSectors:
         ret
 
 .err_msg: db "ERROR: could not read sectors", 0xd, 0xa, 0
-.success_msg: db "sucessfully read sectors", 0xd, 0xa, 0
+.success_msg: db "successfully read sectors", 0xd, 0xa, 0
