@@ -19,6 +19,8 @@ nop
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
+%define SECTORS_PER_TRACK   63
+%define HEADS_PER_CYLINDER  16
 
 OEM_ID              db      "bloader "
 BytesPerSector      dw      BYTES_PER_SECTOR
@@ -29,8 +31,8 @@ MaxRootEntries      dw      MAX_ROOT_ENTRIES
 NumberOfSectors     dw      0
 MediaDescriptor     db      0xf8
 SectorsPerFAT       dw      SECTORS_PER_FAT
-SectorsPerTrack     dw      63
-HeadsPerCylinder    dw      16
+SectorsPerTrack     dw      SECTORS_PER_TRACK
+HeadsPerCylinder    dw      HEADS_PER_CYLINDER
 HiddenSectors       dd      0
 BigSectorsPerFAT    dd      0x00010000
 DriveNumber         db      0
@@ -77,8 +79,7 @@ stage2:
     call enable_A20
     call get_memory_map
     ; call init_vbe
-
-    jmp enter_long_mode
+    jmp enter_protected_mode
 
 %include "A20.asm"
 %include "vbe.asm"
@@ -86,12 +87,17 @@ stage2:
 %include "fat16.asm"
 %include "longmode.asm"
 
+
+[BITS 32]
+protected_entry:
+    call load_kernel
+    jmp enter_long_mode
+
+
 %define elf_offset_entry 0x18   ; elf header offset to entry_addr
 
 [BITS 64]
 long_mode_entry:
-    call load_kernel
-
     ; pass important information as args (System V AMD64 ABI calling convention)
     mov rdi, memory_map_addr
     mov rsi, vbe

@@ -1,5 +1,16 @@
-%define fat_lba            RESERVED_SECTORS
-%define root_dir_lba       (fat_lba + TOTAL_FATS * SECTORS_PER_FAT)
+%define fat_lba             RESERVED_SECTORS
+%define root_dir_lba        (fat_lba + TOTAL_FATS * SECTORS_PER_FAT)
+
+%define sec_per_cyl         (HEADS_PER_CYLINDER * SECTORS_PER_TRACK)
+
+%define root_dir_cyl        (root_dir_lba / sec_per_cyl)
+%define root_dir_head       (root_dir_lba % sec_per_cyl / SECTORS_PER_TRACK)
+%define root_dir_sector     (root_dir_lba % sec_per_cyl % SECTORS_PER_TRACK + 1)    ; sector starts from 1
+
+%define fat_cyl             (fat_lba / sec_per_cyl)
+%define fat_head            (fat_lba % sec_per_cyl / SECTORS_PER_TRACK)
+%define fat_sector          (fat_lba % sec_per_cyl % SECTORS_PER_TRACK + 1)
+
 
 %define start_cluster 0x1a      ; offset to start_cluster
 %define file_size 0x1c          ; offset to file_size
@@ -8,90 +19,93 @@
 %define root_dir_addr 0x120000  ; (0x120000 - 0x124000)
 %define fat_addr 0x124000       ; (0x124000 - 0x12c000)
 
-[BITS 64]
-; eax = LBA
-; bl = size in sector (0 -> 256)
-; rdi = dest addr
-readATA:
-    ; ports 0x1f0 - 0x1f7 for primary ATA harddisk controller
-    mov edx, 0x1f3      ; LBA 0 - 7 bits port
-    out dx, al
+%define tmp_addr 0xa000         ; (0xa000 - 0xf000)
+%define max_sectors ((0xf000 - tmp_addr) / BYTES_PER_SECTOR)
 
-    mov edx, 0x1f4      ; LBA 8 - 15 bits port
-    shr eax, 8
-    out dx, al
+[BITS 16]
+read_int:
+    int 0x13
+    jnc exec_in_real.leave
 
-    mov edx, 0x1f5      ; LBA 16 - 23 bits port
-    shr eax, 8
-    out dx, al
-
-    mov edx, 0x1f6      ; LBA 24 - 27 bits port
-    shr eax, 8
-    or al, 11100000b    ; bit 4 for master, bit 6 for LBA mode, bit 7 and 5 for old ATA drives (backward compatibility)
-    out dx, al
-
-    mov edx, 0x1f2      ; sector count port
-    mov al, bl
-    out dx, al
-
-    mov edx, 0x1f7      ; command/status port
-    mov al, 0x20        ; read with retry
-    out dx, al
-
-    mov ecx, 4          ; 4 retries
-.wait:
-    in al, dx
-    test al, 0x80
-    jne .retry          ; is BSY flag set
-    test al, 8
-    jne .recv           ; ready to accept PIO data or has data to transfer
-.retry:
-    dec ecx
-    cmp ecx, 0
-    jg .wait
-.recv:
-    in al, dx
-    test al, 0x80
-    jne .recv
-    test al, 0x21
-    jne .err
-.ready:
-    mov rcx, BYTES_PER_SECTOR / 2
-    mov rdx, 0x1f0      ; ATA data port
-    rep insw
-
-    mov edx, 0x1f7      ; status port
-    in al, dx           ; wait 400ns
-    in al, dx
-    in al, dx
-    in al, dx
-
-    dec bl
-    cmp bl, 0
-    jg .recv            ; read next sector
-    ret
-.err:
-    mov byte [0xb8000], 69
-    mov byte [0xb8001], 0x1b
-    mov byte [0xb8002], 82
-    mov byte [0xb8003], 0x1b
-    mov byte [0xb8004], 82
-    mov byte [0xb8005], 0x1b
+    mov si, .err_msg
+    call print
     jmp $
+.err_msg: db "ERROR: could not read cluster", 0xa, 0xd, 0
+
+not_found_int:
+    mov si, .err_msg
+    call print
+    mov si, .name
+    call print
+    jmp $
+.err_msg: db "ERROR: could not find file: ", 0
+.name: db kernel_name, 0xa, 0xd, 0
+
+
+[BITS 32]
+; cl = sector
+; ch = cylinder
+; dh = head
+; al = sector count
+; edi = dest (edi increases)
+read32:
+    push edi
+    push eax
+
+    mov ah, 0x02    ; read
+    mov dl, byte [DriveNumber]
+    mov bx, tmp_addr
+    mov edi, read_int
+    call exec_in_real
+
+.relocate:
+    pop eax
+    pop edi
+
+    mov esi, tmp_addr
+    movzx ecx, al
+    shl ecx, 7          ; * 512 / 2 -> sectors in dwords
+
+    cld
+    rep movsd
+    ret
+
+; input: eax = lba
+; output: ch = cylinder
+;         dh = head
+;         cl = sector
+LBA_to_CHS:
+    xor dx, dx
+    mov bx, sec_per_cyl
+    div bx
+    mov ch, al          ; cylinder
+
+    mov ax, dx
+
+    xor dx, dx
+    mov bx, SECTORS_PER_TRACK
+    div bx
+    mov dh, al          ; head
+
+    mov cl, dl
+    inc cl              ; sector
+    ret
 
 ; eax = cluster number
-; rdi = dest addr
-; output: loads clusters to dest addr (rdi increases)
+; edi = dest addr
+; output: loads clusters to dest addr (edi increases)
 readClusterChain:
-    push rax
+    push eax
+
     add eax, 2
     movzx ebx, byte [SectorsPerCluster]
     mul ebx
     add eax, root_dir_lba
+    call LBA_to_CHS
 
-    call readATA
+    call read32
 
-    pop rax
+    pop eax
     shl eax, 1          ; * 2 (size of one fat16 entry)
 
     movzx eax, word [fat_addr+eax]
@@ -100,27 +114,40 @@ readClusterChain:
     ret
 
 read_root_dir:
-    mov ebx, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
-    mov eax, root_dir_lba
-    mov rdi, root_dir_addr
-    call readATA
+    mov edi, root_dir_addr
+
+    mov al, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
+    mov cl, root_dir_sector
+    mov ch, root_dir_cyl
+    mov dh, root_dir_head
+    call read32
     ret
 
 read_fat:
-    mov ebx, SECTORS_PER_FAT
-    mov eax, fat_lba
-    mov rdi, fat_addr
-    call readATA
+    mov edi, fat_addr
+
+    ; fat is bigger than 0x5000 Bytes -> read in 2 steps
+    mov al, max_sectors
+    mov cl, fat_sector
+    mov ch, fat_cyl
+    mov dh, fat_head
+    call read32
+
+    mov eax, fat_lba+max_sectors
+    call LBA_to_CHS
+    mov al, SECTORS_PER_FAT
+    sub al, max_sectors
+    call read32
     ret
 
 ; find file in root dir named "KERNEL" (kernel_name)
-; output: eax: root dir offset
+; output: eax = root dir offset
 find_file:
     cld
     mov eax, 0
-    mov rcx, .name_len
-    mov rdi, root_dir_addr
-    mov rsi, .name
+    mov ecx, .name_len
+    mov edi, root_dir_addr
+    mov esi, .name
     rep cmpsb
     jne .loop
     ret
@@ -130,20 +157,16 @@ find_file:
     cmp eax, MAX_ROOT_ENTRIES
     jg .not_found
 
-    mov rcx, .name_len
-    lea rdi, [root_dir_addr+eax]
-    mov rsi, .name
+    mov ecx, .name_len
+    lea edi, [root_dir_addr+eax]
+    mov esi, .name
     rep cmpsb
     jne .loop
     ret
 
 .not_found:
-    mov byte [0xb8000], 78
-    mov byte [0xb8001], 0x1b
-    mov byte [0xb8002], 79
-    mov byte [0xb8003], 0x1b
-    mov byte [0xb8004], 84
-    mov byte [0xb8005], 0x1b
+    mov edi, not_found_int
+    call exec_in_real
     jmp $
 
 .name: db kernel_name
@@ -157,6 +180,6 @@ load_kernel:
 
     movzx eax, word [root_dir_addr+eax+start_cluster]       ; stores start_cluster-2 (because 2nd is reserved)
 
-    mov rdi, kernel_addr
+    mov edi, kernel_addr
     call readClusterChain
     ret

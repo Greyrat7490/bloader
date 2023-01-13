@@ -52,17 +52,48 @@
 %define vbe_PTs_addr  0x108000
 
 
-[BITS 16]
-enter_long_mode:
+[BITS 32]
+; edi = int num
+exec_in_real:
+    jmp gdt32.code16:.protected_16bit
+.protected_16bit:
     cli
-    lgdt [gdt32.pointer]
+    pusha           ; save int args
 
+    mov ax, gdt32.data16
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    mov eax, cr0
+    and al, 0xfe     ; first bit to disable protected mode
+    mov cr0, eax
+
+    jmp 0x0:.real_mode  ; enter real mode
+[BITS 16]
+.real_mode:
+    cli
+    xor ax, ax
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    lidt [biosIDT]
+    sti
+    popa            ; restore int args
+    jmp edi
+
+.leave:
+    cli
     mov eax, cr0
     or eax, 1     ; first bit to enable protected mode
     mov cr0, eax
 
     jmp gdt32.code:.protected_entry
-
 [BITS 32]
 .protected_entry:
     cli
@@ -72,7 +103,31 @@ enter_long_mode:
     mov es, ax
     mov fs, ax
     mov gs, ax
+    ret
 
+
+[BITS 16]
+enter_protected_mode:
+    cli
+    lgdt [gdt32.pointer]
+
+    mov eax, cr0
+    or eax, 1     ; first bit to enable protected mode
+    mov cr0, eax
+
+    jmp gdt32.code:.init
+[BITS 32]
+.init:
+    mov ax, gdt32.data
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    jmp protected_entry
+
+
+enter_long_mode:
     call .init_paging
     call .enable_long_mode
     lgdt [gdt64.pointer]
@@ -235,7 +290,7 @@ enter_long_mode:
 
 align 16
 gdt32:
-.null: equ $ - gdt32          ; kernel null descriptor
+.null: equ $ - gdt32        ; kernel null descriptor
     dq 0
 .code: equ $ - gdt32        ; ring 0 code descriptor
     dw 0xffff               ; limit (low)
@@ -250,6 +305,20 @@ gdt32:
     db 0                    ; base  (middle)
     db 10010010b            ; present, kernel_mode, code_data_seg, data_seg, executable, read/write
     db 11001111b            ; protected mode, limit (higher 4bit)
+    db 0                    ; base  (high)
+.code16: equ $ - gdt32      ; ring 0 code descriptor
+    dw 0xffff               ; limit (low)
+    dw 0                    ; base  (low)
+    db 0                    ; base  (middle)
+    db 10011010b            ; present, kernel_mode, code_data_seg, code_seg, executable, read/write
+    db 00001111b            ; protected mode, limit (higher 4bit)
+    db 0                    ; base  (high)
+.data16: equ $ - gdt32      ; ring 0 data descriptor
+    dw 0xffff               ; limit (low)
+    dw 0                    ; base  (low)
+    db 0                    ; base  (middle)
+    db 10010010b            ; present, kernel_mode, code_data_seg, data_seg, executable, read/write
+    db 00001111b            ; protected mode, limit (higher 4bit)
     db 0                    ; base  (high)
 .pointer:
     dw $ - gdt32 - 1
@@ -276,3 +345,8 @@ gdt64:
 .pointer:
     dw $ - gdt64 - 1
     dq gdt64
+
+align 16
+biosIDT:
+    .len: dw 0x3ff
+    .base: dd 0x0
