@@ -103,6 +103,7 @@ readClusterChain:
     add eax, root_dir_lba
     call LBA_to_CHS
 
+    mov al, byte [SectorsPerCluster]
     call read32
 
     pop eax
