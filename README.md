@@ -1,17 +1,17 @@
 # simple legacy bootloader
 
-## process
+## procedure
 * [x] enable A20
 * [x] get memory info
   * [x] memory map
   * [x] continuous memory (for BIOSes not supporting memory map)
+* [x] check vbe support
 * [x] get best vbe mode
-* [x] set vbe mode
-* [x] go protected mode
-* [x] go long mode
-* [x] load kernel from FAT16 drive (ATA only!)
-  * many PCs don't support ATA anymore (including mine)
-  * [ ] TODO: broader supported method (maybe AHCI?)
+* [x] enter protected mode
+* [x] load kernel from FAT16 drive (file named "KERNEL")
+* [x] enter long mode
+* [x] pass important information (in rdi)
+* [x] give control to the kernel (elf64 file)
 
 ## build
 * ```$ make```
@@ -38,6 +38,7 @@
 
 ## try it on a real device
 *  ```$ sudo dd if=bootloader.img of=/dev/<YourDevice>``` (or any other way)
+* put your elf64 kernel into the root directory and call it "KERNEL" (or change name in OPTIONS)
 * reboot and open BIOS
 * make sure legacy boot(CSM) is enabled when using uefi device
 * boot into USB device
