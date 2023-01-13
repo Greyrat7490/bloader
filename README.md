@@ -9,7 +9,9 @@
 * [x] set vbe mode
 * [x] go protected mode
 * [x] go long mode
-* [ ] load kernel from FAT16 drive
+* [x] load kernel from FAT16 drive (ATA only!)
+  * many PCs don't support ATA anymore (including mine)
+  * [ ] TODO: broader supported method (maybe AHCI?)
 
 ## build
 * ```$ make```
