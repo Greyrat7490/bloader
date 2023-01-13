@@ -4,6 +4,7 @@ nop
 
 ; **********************************
 ; OPTIONS
+%define kernel_name "KERNEL"                            ; file name of the kernel (keep allowed FAT16 file names in mind)
 %define kernel_addr 0x400000                            ; default virtual addr of elf files (adjust if needed or change in linker)
 %define kernel_stack_size 0x4000                        ; 16KiB
 %define kernel_stack_addr (0x130000+kernel_stack_size)  ; stack top
@@ -85,13 +86,11 @@ stage2:
 %include "fat16.asm"
 %include "longmode.asm"
 
-%define programm_start_off 0x1000   ; tmp only for testing
+%define elf_offset_entry 0x18   ; elf header offset to entry_addr
 
 [BITS 64]
 long_mode_entry:
     call load_kernel
-
-    ; call fill_screen32
 
     ; pass important information as args (System V AMD64 ABI calling convention)
     mov rdi, memory_map_addr
@@ -101,23 +100,6 @@ long_mode_entry:
     ; setup new stack for kernel
     mov rsp, kernel_stack_addr
 
-    ; TODO: elf64 get entry_addr
-    jmp kernel_addr+programm_start_off
-
-fill_screen32:    ; only works with 32 bpp
-    cld
-    mov eax, 0x41336e
-    mov edi, dword [vbe.framebuffer]
-    movzx ecx, word [vbe.width]
-    rep stosd
-
-    movzx ebx, word [vbe.height]
-    .l1:
-        movzx ecx, word [vbe.width]
-        rep stosd
-
-        dec ebx
-        cmp ebx, 1
-        jg .l1
-    ret
+    mov rax, qword [kernel_addr+elf_offset_entry]
+    jmp rax
 ; ******************************************************

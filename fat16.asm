@@ -3,6 +3,7 @@
 
 %define start_cluster 0x1a      ; offset to start_cluster
 %define file_size 0x1c          ; offset to file_size
+%define file_name_size 8
 
 %define root_dir_addr 0x120000  ; (0x120000 - 0x124000)
 %define fat_addr 0x124000       ; (0x124000 - 0x12c000)
@@ -43,7 +44,7 @@ readATA:
     test al, 0x80
     jne .retry          ; is BSY flag set
     test al, 8
-    jne .recv           ; is sector buffer ready
+    jne .recv           ; ready to accept PIO data or has data to transfer
 .retry:
     dec ecx
     cmp ecx, 0
@@ -70,8 +71,13 @@ readATA:
     jg .recv            ; read next sector
     ret
 .err:
-    stc ; carry flag to indicate an error
-    ret
+    mov byte [0xb8000], 69
+    mov byte [0xb8001], 0x1b
+    mov byte [0xb8002], 82
+    mov byte [0xb8003], 0x1b
+    mov byte [0xb8004], 82
+    mov byte [0xb8005], 0x1b
+    jmp $
 
 ; eax = cluster number
 ; rdi = dest addr
@@ -94,24 +100,62 @@ readClusterChain:
     ret
 
 read_root_dir:
-    mov bl, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
+    mov ebx, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
     mov eax, root_dir_lba
     mov rdi, root_dir_addr
     call readATA
     ret
 
 read_fat:
-    mov bl, SECTORS_PER_FAT
+    mov ebx, SECTORS_PER_FAT
     mov eax, fat_lba
     mov rdi, fat_addr
     call readATA
     ret
 
+; find file in root dir named "KERNEL" (kernel_name)
+; output: eax: root dir offset
+find_file:
+    cld
+    mov eax, 0
+    mov rcx, .name_len
+    mov rdi, root_dir_addr
+    mov rsi, .name
+    rep cmpsb
+    jne .loop
+    ret
+
+.loop:
+    add eax, 32     ; 32 = entry size / next entry
+    cmp eax, MAX_ROOT_ENTRIES
+    jg .not_found
+
+    mov rcx, .name_len
+    lea rdi, [root_dir_addr+eax]
+    mov rsi, .name
+    rep cmpsb
+    jne .loop
+    ret
+
+.not_found:
+    mov byte [0xb8000], 78
+    mov byte [0xb8001], 0x1b
+    mov byte [0xb8002], 79
+    mov byte [0xb8003], 0x1b
+    mov byte [0xb8004], 84
+    mov byte [0xb8005], 0x1b
+    jmp $
+
+.name: db kernel_name
+.name_len: equ $ - .name
+
 load_kernel:
     call read_fat
     call read_root_dir
 
-    movzx eax, word [root_dir_addr+start_cluster]       ; stores start_cluster-2 (because 2nd is reserved)
+    call find_file
+
+    movzx eax, word [root_dir_addr+eax+start_cluster]       ; stores start_cluster-2 (because 2nd is reserved)
 
     mov rdi, kernel_addr
     call readClusterChain
