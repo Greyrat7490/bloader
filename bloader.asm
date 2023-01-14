@@ -15,7 +15,7 @@ nop
 ; **************************************************
 %define BYTES_PER_SECTOR    0x0200
 %define SECTORS_PER_CLUSTER 8
-%define RESERVED_SECTORS    6
+%define RESERVED_SECTORS    7
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
@@ -90,19 +90,19 @@ protected_entry:
 
 %include "fat16.asm"
 %include "longmode.asm"
-
-%define elf_offset_entry 0x18   ; elf header offset to entry_addr
+%include "elf64.asm"
 
 [BITS 64]
 long_mode_entry:
+    call zero_init_bss
+
     ; pass important information as args (System V AMD64 ABI calling convention)
     mov rdi, boot_info
 
-    ; setup new stack for kernel
     mov rsp, kernel_stack_addr
 
-    ; give controll to the kernel
-    jmp qword [kernel_addr+elf_offset_entry]
+    ; give control to the kernel
+    jmp qword [kernel_addr+elf_entry]
 ; ******************************************************
 
 
