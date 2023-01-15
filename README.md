@@ -14,10 +14,13 @@
 * [x] give control to the kernel (elf64 file)
 
 ## build
-* ```$ make```
+* ```$ make``` / ```$ make release```
+  * creates a bootable image without any kernel inside
 
 ## test it with qemu
-* ```$ make run```
+* ```$ make test```
+  * creates a bootable image with a test kernel inside (test.asm)
+  * test.asm just prints "BLOADER" to the screen
 
 ## debug with qemu
 * ```$ make monitor```
@@ -37,7 +40,8 @@
   * log all interrupts (state of all regs)
 
 ## try it on a real device
-*  ```$ sudo dd if=bootloader.img of=/dev/<YourDevice>``` (or any other way)
+* ```$ make``` / ```$ make release```
+* ```$ sudo dd if=build/bloader.img of=/dev/<YourDevice>``` (or any other way)
 * put your elf64 kernel into the root directory and call it "KERNEL" (or change name in OPTIONS)
 * reboot and open BIOS
 * make sure legacy boot(CSM) is enabled when using uefi device
