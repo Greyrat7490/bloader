@@ -96,6 +96,15 @@ protected_entry:
 long_mode_entry:
     call zero_init_bss
 
+    mov ax, word [memory_map_len]
+    mov word [boot_info.memory_map_len], ax
+    mov ax, word [upper_memory_64KiB]
+    mov word [boot_info.upper_memory_64KiB], ax
+    mov ax, word [lower_memory_KiB]
+    mov word [boot_info.lower_memory_KiB], ax
+    mov eax, dword [kernel_size]
+    mov dword [boot_info.kernel_size], eax
+
     ; pass important information as args (System V AMD64 ABI calling convention)
     mov rdi, boot_info
 
@@ -107,10 +116,15 @@ long_mode_entry:
 
 
 boot_info:
-    .memory_map: dd memory_map_addr
-    .paging_tables: dd PML4_addr
-    .vbe_info: dd vbe_info
-    .vbe_mode_info: dd vbe
-    .gdt32: dd gdt32
-    .gdt64: dd gdt64
-    .biosIDT: dd biosIDT
+    .memory_map:            dq memory_map_addr
+    .memory_map_len:        dw 0
+    .lower_memory_KiB:      dw 0
+    .upper_memory_64KiB:    dw 0
+    .paging_tables:         dq PML4_addr
+    .gdt32:                 dq gdt32
+    .gdt64:                 dq gdt64
+    .biosIDT:               dq biosIDT
+    .vbe_info:              dq vbe_info
+    .vbe_mode_info:         dq vbe
+    .kernel_addr:           dq kernel_addr
+    .kernel_size:           dd 0
