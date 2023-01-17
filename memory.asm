@@ -1,7 +1,7 @@
 ; methode 1 (memory map / only method to get ALL available memory) ***************
 ; int 0x15  eax=0xe820
 ; ->    ES:DI = ptr to SMAP buffer (size: most of the time 20B / rare case 24B)
-;       SMAP: 64bit addr | 64bit size | 32bit type (| 4bit ACPI 3.0 bitfield)
+;       SMAP: 64bit addr | 64bit size | 32bit type (| 32bit ACPI 3.0 bitfield)
 ;       type 1: usable
 ;       type 2: unusable
 ;       type 3: ACPI reusable
