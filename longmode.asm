@@ -52,60 +52,6 @@
 %define vbe_PTs_addr  0x108000
 
 
-[BITS 32]
-; edi = int num
-exec_in_real:
-    jmp gdt32.code16:.protected_16bit
-.protected_16bit:
-    cli
-    pusha           ; save int args
-
-    mov ax, gdt32.data16
-    mov ss, ax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
-    mov eax, cr0
-    and al, 0xfe     ; first bit to disable protected mode
-    mov cr0, eax
-
-    jmp 0x0:.real_mode  ; enter real mode
-[BITS 16]
-.real_mode:
-    cli
-    xor ax, ax
-    mov ss, ax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-
-    lidt [biosIDT]
-    sti
-    popa            ; restore int args
-    jmp edi
-
-.leave:
-    cli
-    mov eax, cr0
-    or eax, 1     ; first bit to enable protected mode
-    mov cr0, eax
-
-    jmp gdt32.code:.protected_entry
-[BITS 32]
-.protected_entry:
-    cli
-    mov ax, gdt32.data
-    mov ss, ax
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    ret
-
-
 [BITS 16]
 enter_protected_mode:
     cli

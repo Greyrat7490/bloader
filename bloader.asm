@@ -15,7 +15,7 @@ nop
 ; **************************************************
 %define BYTES_PER_SECTOR    0x0200
 %define SECTORS_PER_CLUSTER 8
-%define RESERVED_SECTORS    7
+%define RESERVED_SECTORS    8
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
@@ -123,8 +123,11 @@ boot_info:
     .paging_tables:         dq PML4_addr
     .gdt32:                 dq gdt32
     .gdt64:                 dq gdt64
+    .call_bios_service:     dq call_bios_service
     .biosIDT:               dq biosIDT
     .vbe_info:              dq vbe_info
     .vbe_mode_info:         dq vbe
     .kernel_addr:           dq kernel_addr
     .kernel_size:           dd 0
+
+%include "bios_services.asm"

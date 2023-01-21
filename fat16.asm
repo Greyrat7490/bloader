@@ -25,8 +25,9 @@
 [BITS 16]
 read_int:
     int 0x13
-    jnc exec_in_real.leave
-
+    jc .err
+    ret
+.err:
     mov si, .err_msg
     call print
     jmp $
