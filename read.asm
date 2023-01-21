@@ -5,7 +5,7 @@
 ; *************************************************
 loadStage2:
     mov cl, 2                   ; start from 2nd sector
-    mov al, RESERVED_SECTORS-1  ; read 5 sector
+    mov al, RESERVED_SECTORS-1  ; 2nd stage size in sectors
     mov ch, 0                   ; cylinder
     mov dh, 0                   ; head
     mov ah, 0x02                ; read
