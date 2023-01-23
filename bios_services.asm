@@ -1,5 +1,6 @@
 [BITS 32]
 ; edi = which service
+; esi = packed args for service
 ; can only be called from protected mode (yet)
 call_bios_service:
     cli
@@ -31,6 +32,7 @@ call_bios_service:
     lidt [biosIDT]
 
     sti
+    ; TODO: check if edi is valid
     call [bios_services+edi*4]
     cli
 
@@ -60,19 +62,89 @@ prev_idt:
 
 
 bios_services:
-    .printA: dd printA
-    .printB: dd printB
+    .set_vbe_mode:  dd set_vbe_mode
+    .readCHS:       dd readCHS
 
-printA:
-    mov al, 65
-    mov ah, 0xe
-    int 0x10
+[BITS 16]
+; **********************************************
+; read sectors using Cylinder Head Sector (CHS)
+; to read_dest from boot drive (not recommanded use AHCI instead)
+; input   (packed): esi = ch | dh | cl | al
+; input (unpacked):
+;   * ch = cylinder
+;   * dh = head
+;   * cl = sector
+;   * al = how many sectors
+; **********************************************
+%define read_dest 0xa000
+%define max_sectors ((0xf000 - read_dest) / BYTES_PER_SECTOR)
+readCHS:
+    push ax
+    push bx
+    push cx
+    push dx
+
+    ; TODO: check sectors count (< max_sectors / some BIOSes < 128)
+    ; TODO: check cylinder boundary (some BIOSes)
+
+    ; unpack args
+    mov ax, si
+    mov cl, ah
+    shr esi, 16
+    mov ax, si
+    mov ch, ah
+    mov dh, al
+
+    mov ah, 0x2
+    mov dl, byte [DriveNumber]
+    mov bx, read_dest
+    int 0x13
+    jnc .exit
+
+    push si
+    mov si, .err_msg
+    call print
+    pop si
+.exit:
+    pop dx
+    pop cx
+    pop bx
+    pop ax
     ret
-printB:
-    mov al, 66
-    mov ah, 0xe
-    int 0x10
-    ret
+
+.err_msg: db "ERROR: could not read sectors", 0xa, 0xd, 0
+
+; *********************************
+; set vbe mode
+; input   (packed): esi = _ | _ |  bx  |
+; input (unpacked):
+;   * bx = vbe mode number
+; *********************************
+set_vbe_mode:
+    push ax
+    push bx
+    mov bx, si ; unpack arg
+
+    mov ax, 0x4f02
+    or bx, 0x4000       ; enable linear framebuffer
+    push es
+    int 0x10            ; some bios might change es
+    pop es
+
+    cmp ax, 0x4f
+    je .exit
+
+    .err:
+        push si
+        mov si, .err_msg
+        call print
+        pop si
+    .exit:
+        pop bx
+        pop ax
+        ret
+
+.err_msg: db "ERROR: could not set vbe mode", 0xd, 0xa, 0
 
 
 [BITS 32]

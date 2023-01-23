@@ -88,31 +88,6 @@ find_best_mode:
     .exit:
         ret
 
-set_vbe_mode:
-    mov ax, 0x4f02
-    mov bx, word [vbe.mode]
-    or bx, 0x4000               ; enable linear framebuffer
-    push es
-    int 0x10
-    pop es
-
-    cmp ax, 0x004f
-    je .exit
-
-    .err:
-        mov si, .err_msg
-        call print
-    .exit:
-        ret
-
-.err_msg: db "ERROR could not set vbe mode", 0xd, 0xa, 0
-
-init_vbe:
-    call get_vbe_info
-    call find_best_mode
-    call set_vbe_mode
-    ret
-
 vbe:
     .mode:          dw 0
     .framebuffer    dd 0
