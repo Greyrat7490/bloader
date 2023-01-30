@@ -181,11 +181,8 @@ load_kernel:
     call find_file
 
     mov ebx, dword [root_dir_addr+eax+file_size]
-    mov dword [kernel_size], ebx
 
     movzx eax, word [root_dir_addr+eax+start_cluster]       ; stores start_cluster-2 (because 2nd is reserved)
     mov edi, kernel_addr
     call readClusterChain
     ret
-
-kernel_size: dd 0

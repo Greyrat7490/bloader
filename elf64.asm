@@ -48,38 +48,50 @@ get_bss:
 
 ; no sectors -> use last loadable programm header (get ".bss" with file and memory size diff)
 .use_ph:
+    call get_last_ph
+
+    mov rcx, [rdi+elf_ph_memsize]
+    sub rcx, qword [rdi+elf_ph_filesize]
+
+    mov rax, [rdi+elf_ph_addr]
+    add rax, qword [rdi+elf_ph_filesize]
+    mov rdi, rax
+
+; output: rdi = addr to last loadable programm header
+get_last_ph:
     mov rdi, qword [kernel_addr+elf_programm_header]
     add rdi, kernel_addr
 
     ; last programm header into rdi
-    movzx rax, word [kernel_addr+elf_ph_num]
-    dec rax
-    mov rbx, elf_ph_size
-    mul rbx
+    movzx eax, word [kernel_addr+elf_ph_num]
+    dec eax
+    mov ebx, elf_ph_size
+    mul ebx
     add rdi, rax
 
     ; last loadable programm header
     mov rcx, qword [kernel_addr+elf_ph_num]
-    .l1_ph:
+    .l1:
         cmp dword [rdi+elf_ph_type], elf_pt_load
-        je .found_ph
+        je .found
 
         sub rdi, elf_ph_size
         dec rcx
         cmp rcx, 0
-        jg .l1_ph
+        jg .l1
 
-    .not_found_ph:
+    .not_found:
         mov rdi, 0
         ret
-
-    .found_ph:
-        mov rdi, [rax+elf_ph_addr]
-        add rdi, qword [rax+elf_ph_filesize]
-
-        mov rcx, [rax+elf_ph_memsize]
-        sub rcx, qword [rax+elf_ph_filesize]
+    .found:
         ret
+
+; output: rax = elf64 file end in memory (.bss included)
+get_elf_memend:
+    call get_last_ph
+    mov rax, qword [rdi+elf_ph_memsize]
+    add rax, qword [rdi+elf_ph_addr]
+    ret
 
 zero_init_bss:
     call get_bss

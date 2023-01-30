@@ -102,7 +102,9 @@ long_mode_entry:
     mov word [boot_info.upper_memory_64KiB], ax
     mov ax, word [lower_memory_KiB]
     mov word [boot_info.lower_memory_KiB], ax
-    mov eax, dword [kernel_size]
+
+    call get_elf_memend
+    sub rax, kernel_addr
     mov dword [boot_info.kernel_size], eax
 
     ; pass important information as args (System V AMD64 ABI calling convention)
