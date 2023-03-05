@@ -58,9 +58,11 @@ boot_entry:
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
     call printh
 
-    ; set driver geometry in BPB
-    mov dl, [DriveNumber] 
-    mov ah, 8               ; get driver geometry
+    ; set driver geometry in BPB (only if not floppy or usb emulate as floppy)
+    cmp byte [DriveNumber], 1
+    jbe .take_default
+
+    mov ah, 8               ; get driver geometry (does not work well with floppy disks)
     int 0x13   
 
     jc .take_default
