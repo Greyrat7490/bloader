@@ -16,6 +16,12 @@ release: $(img)
 test: $(test_img)
 	qemu-system-x86_64 -drive format=raw,file=$(img)
 
+test-ahci: $(test_img)
+	qemu-system-x86_64 -M q35 -drive format=raw,file=$(img)
+
+test-xhci: $(test_img)
+	qemu-system-x86_64 -M q35 -drive if=none,id=stick,format=raw,file=$(img) -device nec-usb-xhci,id=xhci -device usb-storage,bus=xhci.0,drive=stick
+
 monitor: $(test_img)
 	qemu-system-x86_64 -drive format=raw,file=$(img) -no-reboot -no-shutdown -monitor stdio
 
