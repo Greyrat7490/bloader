@@ -1,17 +1,6 @@
 %define fat_lba             RESERVED_SECTORS
 %define root_dir_lba        (fat_lba + TOTAL_FATS * SECTORS_PER_FAT)
 
-%define sec_per_cyl         (HEADS_PER_CYLINDER * SECTORS_PER_TRACK)
-
-%define root_dir_cyl        (root_dir_lba / sec_per_cyl)
-%define root_dir_head       (root_dir_lba % sec_per_cyl / SECTORS_PER_TRACK)
-%define root_dir_sector     (root_dir_lba % sec_per_cyl % SECTORS_PER_TRACK + 1)    ; sector starts from 1
-
-%define fat_cyl             (fat_lba / sec_per_cyl)
-%define fat_head            (fat_lba % sec_per_cyl / SECTORS_PER_TRACK)
-%define fat_sector          (fat_lba % sec_per_cyl % SECTORS_PER_TRACK + 1)
-
-
 %define start_cluster 0x1a      ; offset to start_cluster
 %define file_size 0x1c          ; offset to file_size
 %define file_name_size 8
@@ -26,6 +15,8 @@
 read_int:
     int 0x13
     jc .err
+    cmp ah, 0
+    jne .err
     ret
 .err:
     mov si, .err_msg
@@ -44,52 +35,34 @@ not_found_int:
 
 
 [BITS 32]
-; cl = sector
-; ch = cylinder
-; dh = head
-; al = sector count
-; edi = dest (edi increases)
-read32:
+; TODO: check LBA extension suppport
+; TODO: fallback to CHS if not supported
+; edi = dest addr (edi increases)
+read_lba32:
     push edi
-    push eax
 
-    mov ah, 0x02    ; read
+    mov ax, 0
+    mov ds, ax
+    mov ax, DAPACK
+    mov si, ax
+
+    ; read (lba 48bit mode)
+    ; if supported should always work (BIOS converts to CHS for drives which only support CHS)
+    mov ah, 0x42
     mov dl, byte [DriveNumber]
-    mov bx, tmp_addr
+
     mov edi, read_int
     call exec_in_real
 
 .relocate:
-    pop eax
     pop edi
 
     mov esi, tmp_addr
-    movzx ecx, al
+    movzx ecx, word [DAPACK.blkcnt]
     shl ecx, 7          ; * 512 / 2 -> sectors in dwords
 
     cld
     rep movsd
-    ret
-
-; input: eax = lba
-; output: ch = cylinder
-;         dh = head
-;         cl = sector
-LBA_to_CHS:
-    xor dx, dx
-    mov bx, sec_per_cyl
-    div bx
-    mov ch, al          ; cylinder
-
-    mov ax, dx
-
-    xor dx, dx
-    mov bx, SECTORS_PER_TRACK
-    div bx
-    mov dh, al          ; head
-
-    mov cl, dl
-    inc cl              ; sector
     ret
 
 ; eax = cluster number
@@ -102,10 +75,11 @@ readClusterChain:
     movzx ebx, byte [SectorsPerCluster]
     mul ebx
     add eax, root_dir_lba
-    call LBA_to_CHS
 
-    mov al, byte [SectorsPerCluster]
-    call read32
+    mov dword [DAPACK.lba_lower], eax
+    movzx ax, byte [SectorsPerCluster]
+    mov word [DAPACK.blkcnt], ax
+    call read_lba32
 
     pop eax
     shl eax, 1          ; * 2 (size of one fat16 entry)
@@ -118,28 +92,22 @@ readClusterChain:
 read_root_dir:
     mov edi, root_dir_addr
 
-    mov al, MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
-    mov cl, root_dir_sector
-    mov ch, root_dir_cyl
-    mov dh, root_dir_head
-    call read32
+    mov word [DAPACK.blkcnt], MAX_ROOT_ENTRIES * 32 / BYTES_PER_SECTOR
+    mov dword [DAPACK.lba_lower], root_dir_lba
+    call read_lba32
     ret
 
 read_fat:
     mov edi, fat_addr
 
     ; fat is bigger than 0x5000 Bytes -> read in 2 steps
-    mov al, max_sectors
-    mov cl, fat_sector
-    mov ch, fat_cyl
-    mov dh, fat_head
-    call read32
+    mov dword [DAPACK.lba_lower], fat_lba
+    mov word [DAPACK.blkcnt], max_sectors
+    call read_lba32
 
-    mov eax, fat_lba+max_sectors
-    call LBA_to_CHS
-    mov al, SECTORS_PER_FAT
-    sub al, max_sectors
-    call read32
+    mov dword [DAPACK.lba_lower], fat_lba+max_sectors
+    mov word [DAPACK.blkcnt], SECTORS_PER_FAT - max_sectors
+    call read_lba32
     ret
 
 ; find file in root dir named "KERNEL" (kernel_name)
@@ -186,3 +154,16 @@ load_kernel:
     mov edi, kernel_addr
     call readClusterChain
     ret
+
+DAPACK:
+    db 0x10     ; DAPACK size
+    db 0        ; reserved (always 0)
+.blkcnt:        ; sector count (after read/write set to actual value)
+    dw 0
+.dest:
+    dw tmp_addr ; offset
+	dw 0        ; segment
+.lba_lower: 
+    dd 0        ; lower 32bit lba
+.lba_upper:
+    dd 0        ; upper 16bit lba

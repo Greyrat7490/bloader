@@ -19,8 +19,7 @@ nop
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
-%define SECTORS_PER_TRACK   63
-%define HEADS_PER_CYLINDER  16
+
 
 OEM_ID              db      "bloader "
 BytesPerSector      dw      BYTES_PER_SECTOR
@@ -31,8 +30,8 @@ MaxRootEntries      dw      MAX_ROOT_ENTRIES
 NumberOfSectors     dw      0
 MediaDescriptor     db      0xf8
 SectorsPerFAT       dw      SECTORS_PER_FAT
-SectorsPerTrack     dw      SECTORS_PER_TRACK
-HeadsPerCylinder    dw      HEADS_PER_CYLINDER
+SectorsPerTrack     dw      63 ; default value get correct value from BIOS
+HeadsPerCylinder    dw      16 ; default value get correct value from BIOS
 HiddenSectors       dd      0
 BigSectorsPerFAT    dd      0x00010000
 DriveNumber         db      0
@@ -57,7 +56,31 @@ boot_entry:
     sti
 
     mov [DriveNumber], dl   ; BIOS stores driver number in dl
+    call printh
 
+    ; set driver geometry in BPB
+    mov dl, [DriveNumber] 
+    mov ah, 8               ; get driver geometry
+    int 0x13   
+
+    jc .take_default
+    cmp ah, 0
+    jne .take_default
+
+    inc dh
+    mov [HeadsPerCylinder], dh
+    call printh
+
+    cmp cl, 0
+    je .take_default
+
+    ; in qemu with xhci = 0 -> don't use CHS read use LBA instead (should always work if supported)
+    mov [SectorsPerTrack], cl  
+    mov dx, cx
+    call printh
+.take_default:
+
+    mov dl, [DriveNumber]
     mov bx, stage2          ; dst (es:bx / 0:stage2 -> stage2)
     call loadStage2
 
