@@ -15,7 +15,7 @@ nop
 ; **************************************************
 %define BYTES_PER_SECTOR    0x0200
 %define SECTORS_PER_CLUSTER 8
-%define RESERVED_SECTORS    8
+%define RESERVED_SECTORS    9
 %define TOTAL_FATS          2
 %define MAX_ROOT_ENTRIES    0x0200
 %define SECTORS_PER_FAT     0x0040
@@ -105,14 +105,16 @@ stage2:
     jmp enter_protected_mode
 
 %include "A20.asm"
-%include "vbe.asm"
 %include "memory.asm"
+%include "vbe.asm"
 
 [BITS 32]
 protected_entry:
+    call get_rsdp
     call load_kernel
     jmp enter_long_mode
 
+%include "rsdp.asm"
 %include "fat16.asm"
 %include "longmode.asm"
 %include "elf64.asm"
@@ -121,6 +123,8 @@ protected_entry:
 long_mode_entry:
     call zero_init_bss
 
+    mov eax, dword [rsdp]
+    mov qword [boot_info.rsdp], rax
     mov ax, word [memory_map_len]
     mov word [boot_info.memory_map_len], ax
     mov ax, word [upper_memory_64KiB]
@@ -147,6 +151,7 @@ boot_info:
     .memory_map_len:        dw 0
     .lower_memory_KiB:      dw 0
     .upper_memory_64KiB:    dw 0
+    .rsdp:                  dq 0
     .paging_tables:         dq PML4_addr
     .gdt32:                 dq gdt32
     .gdt64:                 dq gdt64
